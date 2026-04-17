@@ -82,7 +82,6 @@ with gr.Blocks(title="Estonian Transcription") as demo:
     transcript_box = gr.Textbox(
         label="Full transcript",
         lines=10,
-        show_copy_button=True,
         interactive=False,
         placeholder="Transcript will appear here after processing…",
     )
