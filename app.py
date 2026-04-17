@@ -36,12 +36,15 @@ def _get_pipeline() -> TranscriptionPipeline:
     return _pipeline
 
 
-def transcribe(audio_path: str | None) -> tuple[str, list[list[str]], str | None, str | None]:
-    if not audio_path:
+def transcribe(uploaded_file: object | None) -> tuple[str, list[list[str]], str | None, str | None]:
+    if not uploaded_file:
         return "", [], None, None
 
+    # gr.File yields a NamedString / tempfile wrapper — get the filesystem path.
+    file_path = uploaded_file if isinstance(uploaded_file, str) else uploaded_file.name
+
     pipe = _get_pipeline()
-    result = pipe.transcribe_file(Path(audio_path))
+    result = pipe.transcribe_file(Path(file_path))
 
     # Segments table rows
     rows = [
@@ -51,7 +54,7 @@ def transcribe(audio_path: str | None) -> tuple[str, list[list[str]], str | None
 
     # Write downloadable output files to a temp directory
     tmp = Path(tempfile.mkdtemp())
-    stem = Path(audio_path).stem
+    stem = Path(file_path).stem
     srt_path = tmp / f"{stem}.srt"
     json_path = tmp / f"{stem}.json"
     write_srt(result, srt_path)
@@ -73,9 +76,9 @@ with gr.Blocks(title="Estonian Transcription") as demo:
         "Transcription on CPU is slower than real-time for long recordings."
     )
 
-    audio_input = gr.Audio(
-        type="filepath",
+    audio_input = gr.File(
         label="Input audio / video",
+        file_types=["audio", ".mp4", ".m4a", ".wma", ".aac"],
     )
     run_btn = gr.Button("Transcribe", variant="primary")
 
