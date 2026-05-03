@@ -7,10 +7,18 @@ import torch
 logger = logging.getLogger(__name__)
 
 
-def resolve_device(preference: str = "mps") -> str:
+def resolve_device(preference: str = "gpu") -> str:
     preference = preference.lower().strip()
 
     if preference == "cpu":
+        return "cpu"
+
+    if preference == "gpu":
+        if torch.cuda.is_available():
+            return "cuda"
+        if torch.backends.mps.is_available() and torch.backends.mps.is_built():
+            return "mps"
+        logger.warning("No GPU found (CUDA/MPS). Falling back to CPU.")
         return "cpu"
 
     if preference == "mps":

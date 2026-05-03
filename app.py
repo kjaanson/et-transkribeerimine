@@ -13,7 +13,6 @@ from pathlib import Path
 # src-layout: make the transcriber package importable in the HF Space runtime.
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-import torch  # noqa: E402  (must come after sys.path patch)
 import gradio as gr  # noqa: E402
 
 from transcriber.config import (  # noqa: E402
@@ -34,10 +33,8 @@ _pipelines: dict[str, TranscriptionPipeline] = {}
 
 def _get_pipeline(model_alias: str) -> TranscriptionPipeline:
     if model_alias not in _pipelines:
-        device = "cuda" if torch.cuda.is_available() else "cpu"
         config = PipelineConfig(
             model_id=resolve_model_id(model_alias),
-            device_preference=device,
         )
         _pipelines[model_alias] = TranscriptionPipeline(config)
     return _pipelines[model_alias]

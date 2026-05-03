@@ -77,7 +77,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help="List available model aliases and exit.",
     )
     parser.add_argument("--language", default="et")
-    parser.add_argument("--device", default="mps", choices=["mps", "cpu", "cuda"])
+    parser.add_argument("--device", default="gpu", choices=["gpu", "mps", "cpu", "cuda"])
     parser.add_argument("--chunk-length", type=int, default=30)
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument(

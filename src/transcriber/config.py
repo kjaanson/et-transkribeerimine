@@ -49,7 +49,7 @@ class PipelineConfig:
     model_id: str = MODEL_REGISTRY[DEFAULT_MODEL_ALIAS]
     output_dir: Path = Path("output")
     language: str = "et"
-    device_preference: str = "mps"
+    device_preference: str = "gpu"
     chunk_length_s: int = 15
     batch_size: int = 1
     format_txt: bool = True
