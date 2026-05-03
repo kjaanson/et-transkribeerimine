@@ -7,7 +7,12 @@ from pathlib import Path
 
 from tqdm import tqdm
 
-from .config import PipelineConfig
+from .config import (
+    DEFAULT_MODEL_ALIAS,
+    MODEL_REGISTRY,
+    PipelineConfig,
+    resolve_model_id,
+)
 from .io_audio import discover_media_files
 from .outputs import write_outputs
 from .pipeline import TranscriptionPipeline
@@ -19,11 +24,48 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+class _ListModelsAction(argparse.Action):
+    def __init__(self, option_strings, dest=argparse.SUPPRESS, **kwargs):
+        super().__init__(
+            option_strings=option_strings,
+            dest=dest,
+            nargs=0,
+            default=argparse.SUPPRESS,
+            **kwargs,
+        )
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        width = max(len(alias) for alias in MODEL_REGISTRY)
+        print("Available model aliases (use with --model):")
+        for alias, hf_id in MODEL_REGISTRY.items():
+            marker = " (default)" if alias == DEFAULT_MODEL_ALIAS else ""
+            print(f"  {alias:<{width}}  {hf_id}{marker}")
+        parser.exit(0)
+
+
 def _base_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--data-dir", type=Path, default=Path("data"))
     parser.add_argument("--output-dir", type=Path, default=Path("output"))
-    parser.add_argument("--model-id", default="TalTechNLP/whisper-large-et")
+    parser.add_argument(
+        "--model",
+        default=DEFAULT_MODEL_ALIAS,
+        help=(
+            "Model alias from the registry "
+            f"({', '.join(MODEL_REGISTRY)}). Default: %(default)s. "
+            "Use --list-models for details."
+        ),
+    )
+    parser.add_argument(
+        "--model-id",
+        default=None,
+        help="Full Hugging Face model id (e.g. 'org/repo'). Overrides --model.",
+    )
+    parser.add_argument(
+        "--list-models",
+        action=_ListModelsAction,
+        help="List available model aliases and exit.",
+    )
     parser.add_argument("--language", default="et")
     parser.add_argument("--device", default="mps", choices=["mps", "cpu", "cuda"])
     parser.add_argument("--chunk-length", type=int, default=30)
@@ -31,12 +73,20 @@ def _base_parser() -> argparse.ArgumentParser:
     parser.add_argument("--no-txt", action="store_true")
     parser.add_argument("--no-json", action="store_true")
     parser.add_argument("--no-srt", action="store_true")
+    parser.add_argument("--no-xlsx", action="store_true")
     return parser
 
 
-def _config_from_args(args: argparse.Namespace) -> PipelineConfig:
+def _config_from_args(
+    args: argparse.Namespace, parser: argparse.ArgumentParser
+) -> PipelineConfig:
+    requested = args.model_id if args.model_id else args.model
+    try:
+        model_id = resolve_model_id(requested)
+    except ValueError as exc:
+        parser.error(str(exc))
     return PipelineConfig(
-        model_id=args.model_id,
+        model_id=model_id,
         data_dir=args.data_dir,
         output_dir=args.output_dir,
         language=args.language,
@@ -46,18 +96,19 @@ def _config_from_args(args: argparse.Namespace) -> PipelineConfig:
         format_txt=not args.no_txt,
         format_json=not args.no_json,
         format_srt=not args.no_srt,
+        format_xlsx=not args.no_xlsx,
     )
 
 
 def single_main() -> None:
     parser = argparse.ArgumentParser(
-        description="Transcribe one media file with TalTechNLP Whisper ET",
+        description="Transcribe one media file with an Estonian Whisper model",
         parents=[_base_parser()],
     )
     parser.add_argument("input_file", type=Path)
     args = parser.parse_args()
 
-    config = _config_from_args(args)
+    config = _config_from_args(args, parser)
     pipeline = TranscriptionPipeline(config)
     pipeline.preflight_check()
 
@@ -68,6 +119,7 @@ def single_main() -> None:
         write_txt_file=config.format_txt,
         write_json_file=config.format_json,
         write_srt_file=config.format_srt,
+        write_xlsx_file=config.format_xlsx,
     )
     logger.info("Transcribed: %s", args.input_file)
     for path in written:
@@ -82,7 +134,7 @@ def batch_main() -> None:
     parser.add_argument("--recurse", action="store_true", help="Scan directories recursively")
     args = parser.parse_args()
 
-    config = _config_from_args(args)
+    config = _config_from_args(args, parser)
     config.recurse = args.recurse
 
     pipeline = TranscriptionPipeline(config)

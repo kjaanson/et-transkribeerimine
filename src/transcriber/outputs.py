@@ -5,6 +5,8 @@ from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 
+from openpyxl import Workbook
+
 from .pipeline import TranscriptionResult
 
 
@@ -52,12 +54,34 @@ def write_srt(result: TranscriptionResult, path: Path) -> None:
     path.write_text("\n".join(lines).strip() + "\n", encoding="utf-8")
 
 
+def write_xlsx(result: TranscriptionResult, path: Path) -> None:
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Segments"
+    ws.append(["Segment", "Start (s)", "End (s)", "Text"])
+
+    if result.segments:
+        for idx, seg in enumerate(result.segments, start=1):
+            ws.append([
+                idx,
+                float(seg["start"]),
+                float(seg["end"]),
+                seg["text"].strip(),
+            ])
+    else:
+        ws.append([1, 0.0, 0.0, result.text.strip()])
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    wb.save(path)
+
+
 def write_outputs(
     result: TranscriptionResult,
     output_dir: Path,
     write_txt_file: bool,
     write_json_file: bool,
     write_srt_file: bool,
+    write_xlsx_file: bool = False,
 ) -> list[Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     stem = result.input_path.stem
@@ -77,5 +101,10 @@ def write_outputs(
         srt_path = output_dir / f"{stem}.srt"
         write_srt(result, srt_path)
         written.append(srt_path)
+
+    if write_xlsx_file:
+        xlsx_path = output_dir / f"{stem}.xlsx"
+        write_xlsx(result, xlsx_path)
+        written.append(xlsx_path)
 
     return written

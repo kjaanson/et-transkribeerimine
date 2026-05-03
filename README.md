@@ -12,14 +12,18 @@ license: mit
 
 # ET-transkribeerimine
 
-Transcribe Estonian audio/video files with Hugging Face model `TalTechNLP/whisper-large-et`.
+Transcribe Estonian audio/video files with TalTechNLP Whisper models from Hugging Face.
+
+Default model is `TalTechNLP/whisper-large-v3-turbo-et-verbatim-2604`, which produces
+verbatim transcripts WITH punctuation and proper capitalization. The model can be
+swapped via the `--model` alias flag (see below) or `--model-id` for any HF id.
 
 ## Project Structure
 
 ```text
 et-transkribeerimine/
 ├── data/                      # Input media files
-├── output/                    # Generated transcripts (txt/json/srt)
+├── output/                    # Generated transcripts (txt/json/srt/xlsx)
 ├── scripts/
 │   ├── transcribe.py          # Single-file CLI wrapper
 │   └── batch_transcribe.py    # Batch CLI wrapper
@@ -28,7 +32,7 @@ et-transkribeerimine/
 │   ├── config.py              # Pipeline configuration
 │   ├── devices.py             # MPS/CPU/CUDA device resolution
 │   ├── io_audio.py            # Media discovery helpers
-│   ├── outputs.py             # TXT/JSON/SRT writers
+│   ├── outputs.py             # TXT/JSON/SRT/XLSX writers
 │   └── pipeline.py            # Whisper pipeline implementation
 └── pyproject.toml
 ```
@@ -58,12 +62,24 @@ uv run transcribe-batch --data-dir data --output-dir output
 ```
 
 Options:
+- `--model {verbatim,verbatim-prev,subs,legacy}` — model alias (default: `verbatim`)
+- `--model-id <org/repo>` — full Hugging Face model id; overrides `--model`
+- `--list-models` — print the alias table and exit
 - `--device mps|cpu|cuda` (default: `mps`)
 - `--language et` (default: `et`)
 - `--chunk-length 30`
 - `--batch-size 1`
 - `--recurse` to scan nested folders
-- `--no-txt`, `--no-json`, `--no-srt` to disable formats
+- `--no-txt`, `--no-json`, `--no-srt`, `--no-xlsx` to disable formats
+
+### Model aliases
+
+| Alias           | Hugging Face id                                              | Notes                                                       |
+|-----------------|--------------------------------------------------------------|-------------------------------------------------------------|
+| `verbatim`      | `TalTechNLP/whisper-large-v3-turbo-et-verbatim-2604`         | Default. Verbatim, punctuated, properly capitalized.        |
+| `verbatim-prev` | `TalTechNLP/whisper-large-v3-turbo-et-verbatim`              | Earlier verbatim model, kept for reproducibility.           |
+| `subs`          | `TalTechNLP/whisper-large-v3-turbo-et-subs`                  | Subtitle-style: punctuated, but rephrases/compresses speech.|
+| `legacy`        | `TalTechNLP/whisper-large-et`                                | Original model. Lowercase, unpunctuated.                    |
 
 ### Single file transcription
 
@@ -77,6 +93,7 @@ For each input file, the pipeline writes:
 - `<stem>.txt` plain transcript
 - `<stem>.json` structured transcript with metadata and segments
 - `<stem>.srt` subtitles
+- `<stem>.xlsx` Excel workbook with one row per segment (columns: Segment, Start (s), End (s), Text)
 
 Batch runs also write:
 - `output/run_summary.json` with success/failure report

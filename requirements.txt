@@ -5,3 +5,4 @@ librosa>=0.10.1
 soundfile>=0.12.1
 ffmpeg-python>=0.2.0
 tqdm>=4.66.0
+openpyxl>=3.1.0
