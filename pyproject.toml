@@ -21,8 +21,7 @@ dev = [
 ]
 
 [project.scripts]
-transcribe-file = "transcriber.cli:single_main"
-transcribe-batch = "transcriber.cli:batch_main"
+transcribe-file = "transcriber.cli:main"
 
 [build-system]
 requires = ["hatchling"]

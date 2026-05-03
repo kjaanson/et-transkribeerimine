@@ -1,5 +1,5 @@
-from transcriber.cli import single_main
+from transcriber.cli import main
 
 
 if __name__ == "__main__":
-    single_main()
+    main()

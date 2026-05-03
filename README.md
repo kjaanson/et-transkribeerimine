@@ -55,10 +55,20 @@ This creates `.venv` and installs all dependencies from `pyproject.toml`.
 
 ## Usage
 
-### Batch transcription (default workflow)
+The `transcribe-file` command accepts any number of files, directories, or a
+mix. Directories are scanned for supported media (add `--recurse` for nested
+folders). When more than one file is processed, a `run_summary.json` is also
+written to the output directory.
 
 ```bash
-uv run transcribe-batch --data-dir data --output-dir output
+# One file
+uv run transcribe-file data/clip.mp3 --output-dir output
+
+# Multiple files
+uv run transcribe-file data/a.mp3 data/b.wav data/c.m4a --output-dir output
+
+# Whole directory (with recursion)
+uv run transcribe-file data --recurse --output-dir output
 ```
 
 Options:
@@ -69,7 +79,7 @@ Options:
 - `--language et` (default: `et`)
 - `--chunk-length 30`
 - `--batch-size 1`
-- `--recurse` to scan nested folders
+- `--recurse` — when an input is a directory, scan it recursively
 - `--no-txt`, `--no-json`, `--no-srt`, `--no-xlsx` to disable formats
 
 ### Model aliases
@@ -81,12 +91,6 @@ Options:
 | `subs`          | `TalTechNLP/whisper-large-v3-turbo-et-subs`                  | Subtitle-style: punctuated, but rephrases/compresses speech.|
 | `legacy`        | `TalTechNLP/whisper-large-et`                                | Original model. Lowercase, unpunctuated.                    |
 
-### Single file transcription
-
-```bash
-uv run transcribe-file data/9b565ae3-d95c-47a4-82c7-d3e942db9549.mp4 --output-dir output
-```
-
 ## Outputs
 
 For each input file, the pipeline writes:
@@ -95,7 +99,7 @@ For each input file, the pipeline writes:
 - `<stem>.srt` subtitles
 - `<stem>.xlsx` Excel workbook with one row per segment (columns: Segment, Start (s), End (s), Text)
 
-Batch runs also write:
+Multi-file runs also write:
 - `output/run_summary.json` with success/failure report
 
 ## Device behavior

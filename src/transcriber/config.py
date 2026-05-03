@@ -47,7 +47,6 @@ def resolve_model_id(value: str) -> str:
 @dataclass(slots=True)
 class PipelineConfig:
     model_id: str = MODEL_REGISTRY[DEFAULT_MODEL_ALIAS]
-    data_dir: Path = Path("data")
     output_dir: Path = Path("output")
     language: str = "et"
     device_preference: str = "mps"

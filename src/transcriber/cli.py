@@ -13,7 +13,7 @@ from .config import (
     PipelineConfig,
     resolve_model_id,
 )
-from .io_audio import discover_media_files
+from .io_audio import discover_media_files, is_supported_media
 from .outputs import write_outputs
 from .pipeline import TranscriptionPipeline
 
@@ -43,9 +43,19 @@ class _ListModelsAction(argparse.Action):
         parser.exit(0)
 
 
-def _base_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("--data-dir", type=Path, default=Path("data"))
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Transcribe one or more media files (or directories of files) "
+            "with an Estonian Whisper model."
+        ),
+    )
+    parser.add_argument(
+        "inputs",
+        type=Path,
+        nargs="+",
+        help="Media files and/or directories to transcribe.",
+    )
     parser.add_argument("--output-dir", type=Path, default=Path("output"))
     parser.add_argument(
         "--model",
@@ -70,6 +80,11 @@ def _base_parser() -> argparse.ArgumentParser:
     parser.add_argument("--device", default="mps", choices=["mps", "cpu", "cuda"])
     parser.add_argument("--chunk-length", type=int, default=30)
     parser.add_argument("--batch-size", type=int, default=1)
+    parser.add_argument(
+        "--recurse",
+        action="store_true",
+        help="When an input is a directory, scan it recursively.",
+    )
     parser.add_argument("--no-txt", action="store_true")
     parser.add_argument("--no-json", action="store_true")
     parser.add_argument("--no-srt", action="store_true")
@@ -87,12 +102,12 @@ def _config_from_args(
         parser.error(str(exc))
     return PipelineConfig(
         model_id=model_id,
-        data_dir=args.data_dir,
         output_dir=args.output_dir,
         language=args.language,
         device_preference=args.device,
         chunk_length_s=args.chunk_length,
         batch_size=args.batch_size,
+        recurse=args.recurse,
         format_txt=not args.no_txt,
         format_json=not args.no_json,
         format_srt=not args.no_srt,
@@ -100,55 +115,55 @@ def _config_from_args(
     )
 
 
-def single_main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Transcribe one media file with an Estonian Whisper model",
-        parents=[_base_parser()],
-    )
-    parser.add_argument("input_file", type=Path)
+def _expand_inputs(
+    inputs: list[Path], recurse: bool, parser: argparse.ArgumentParser
+) -> list[Path]:
+    media: list[Path] = []
+    seen: set[Path] = set()
+    for item in inputs:
+        if item.is_dir():
+            for path in discover_media_files(item, recurse=recurse):
+                resolved = path.resolve()
+                if resolved not in seen:
+                    seen.add(resolved)
+                    media.append(path)
+        elif item.is_file():
+            if not is_supported_media(item):
+                logger.warning("Skipping unsupported file extension: %s", item)
+                continue
+            resolved = item.resolve()
+            if resolved not in seen:
+                seen.add(resolved)
+                media.append(item)
+        else:
+            parser.error(f"Input does not exist: {item}")
+    return media
+
+
+def main() -> None:
+    parser = _build_parser()
     args = parser.parse_args()
 
     config = _config_from_args(args, parser)
-    pipeline = TranscriptionPipeline(config)
-    pipeline.preflight_check()
 
-    result = pipeline.transcribe_file(args.input_file)
-    written = write_outputs(
-        result=result,
-        output_dir=config.output_dir,
-        write_txt_file=config.format_txt,
-        write_json_file=config.format_json,
-        write_srt_file=config.format_srt,
-        write_xlsx_file=config.format_xlsx,
-    )
-    logger.info("Transcribed: %s", args.input_file)
-    for path in written:
-        logger.info("Wrote: %s", path)
-
-
-def batch_main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Batch transcribe media files from data directory",
-        parents=[_base_parser()],
-    )
-    parser.add_argument("--recurse", action="store_true", help="Scan directories recursively")
-    args = parser.parse_args()
-
-    config = _config_from_args(args, parser)
-    config.recurse = args.recurse
-
-    pipeline = TranscriptionPipeline(config)
-    pipeline.preflight_check()
-
-    media_files = discover_media_files(config.data_dir, recurse=config.recurse)
+    media_files = _expand_inputs(args.inputs, recurse=config.recurse, parser=parser)
     if not media_files:
-        logger.warning("No supported media files found in %s", config.data_dir)
+        logger.warning("No supported media files found in inputs: %s", args.inputs)
         return
 
-    failures: list[dict[str, str]] = []
-    successes: list[dict[str, str]] = []
+    pipeline = TranscriptionPipeline(config)
+    pipeline.preflight_check()
 
-    for media_path in tqdm(media_files, desc="Transcribing", unit="file"):
+    failures: list[dict[str, str]] = []
+    successes: list[dict[str, object]] = []
+
+    iterator = (
+        tqdm(media_files, desc="Transcribing", unit="file")
+        if len(media_files) > 1
+        else media_files
+    )
+
+    for media_path in iterator:
         try:
             result = pipeline.transcribe_file(media_path)
             written = write_outputs(
@@ -157,6 +172,7 @@ def batch_main() -> None:
                 write_txt_file=config.format_txt,
                 write_json_file=config.format_json,
                 write_srt_file=config.format_srt,
+                write_xlsx_file=config.format_xlsx,
             )
             successes.append(
                 {
@@ -165,27 +181,32 @@ def batch_main() -> None:
                     "device": result.device,
                 }
             )
+            logger.info("Transcribed: %s", media_path)
+            for path in written:
+                logger.info("Wrote: %s", path)
         except Exception as exc:  # noqa: BLE001
             logger.exception("Failed transcription for %s: %s", media_path, exc)
             failures.append({"input": str(media_path), "error": str(exc)})
 
-    summary_path = config.output_dir / "run_summary.json"
-    summary_path.parent.mkdir(parents=True, exist_ok=True)
-    summary_path.write_text(
-        json.dumps(
-            {
-                "model_id": config.model_id,
-                "language": config.language,
-                "success_count": len(successes),
-                "failure_count": len(failures),
-                "successes": successes,
-                "failures": failures,
-            },
-            ensure_ascii=False,
-            indent=2,
-        ),
-        encoding="utf-8",
-    )
-
-    logger.info("Batch finished. Success: %s | Failed: %s", len(successes), len(failures))
-    logger.info("Summary written to %s", summary_path)
+    if len(media_files) > 1:
+        summary_path = config.output_dir / "run_summary.json"
+        summary_path.parent.mkdir(parents=True, exist_ok=True)
+        summary_path.write_text(
+            json.dumps(
+                {
+                    "model_id": config.model_id,
+                    "language": config.language,
+                    "success_count": len(successes),
+                    "failure_count": len(failures),
+                    "successes": successes,
+                    "failures": failures,
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        logger.info(
+            "Finished. Success: %s | Failed: %s", len(successes), len(failures)
+        )
+        logger.info("Summary written to %s", summary_path)
