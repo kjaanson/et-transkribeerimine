@@ -89,6 +89,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--no-json", action="store_true")
     parser.add_argument("--no-srt", action="store_true")
     parser.add_argument("--no-xlsx", action="store_true")
+    parser.add_argument("--no-docx", action="store_true")
     return parser
 
 
@@ -112,6 +113,7 @@ def _config_from_args(
         format_json=not args.no_json,
         format_srt=not args.no_srt,
         format_xlsx=not args.no_xlsx,
+        format_docx=not args.no_docx,
     )
 
 
@@ -173,6 +175,7 @@ def main() -> None:
                 write_json_file=config.format_json,
                 write_srt_file=config.format_srt,
                 write_xlsx_file=config.format_xlsx,
+                write_docx_file=config.format_docx,
             )
             successes.append(
                 {

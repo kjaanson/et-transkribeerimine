@@ -21,7 +21,7 @@ from transcriber.config import (  # noqa: E402
     PipelineConfig,
     resolve_model_id,
 )
-from transcriber.outputs import write_json, write_srt, write_xlsx  # noqa: E402
+from transcriber.outputs import write_docx, write_json, write_srt, write_xlsx  # noqa: E402
 from transcriber.pipeline import TranscriptionPipeline  # noqa: E402
 
 SUPPORTED_FORMATS = "MP3, MP4, M4A, WAV, FLAC, OGG, AAC, WMA"
@@ -43,9 +43,16 @@ def _get_pipeline(model_alias: str) -> TranscriptionPipeline:
 def transcribe(
     uploaded_file: object | None,
     model_alias: str,
-) -> tuple[str, list[list[str]], str | None, str | None, str | None]:
+) -> tuple[
+    str,
+    list[list[str]],
+    str | None,
+    str | None,
+    str | None,
+    str | None,
+]:
     if not uploaded_file:
-        return "", [], None, None, None
+        return "", [], None, None, None, None
 
     # gr.File yields a NamedString / tempfile wrapper — get the filesystem path.
     file_path = uploaded_file if isinstance(uploaded_file, str) else uploaded_file.name
@@ -65,11 +72,20 @@ def transcribe(
     srt_path = tmp / f"{stem}.srt"
     json_path = tmp / f"{stem}.json"
     xlsx_path = tmp / f"{stem}.xlsx"
+    docx_path = tmp / f"{stem}.docx"
     write_srt(result, srt_path)
     write_json(result, json_path)
     write_xlsx(result, xlsx_path)
+    write_docx(result, docx_path)
 
-    return result.text, rows, str(srt_path), str(json_path), str(xlsx_path)
+    return (
+        result.text,
+        rows,
+        str(srt_path),
+        str(json_path),
+        str(xlsx_path),
+        str(docx_path),
+    )
 
 
 # ── UI ──────────────────────────────────────────────────────────────────────
@@ -120,11 +136,19 @@ with gr.Blocks(title="Estonian Transcription") as demo:
         srt_file = gr.File(label="Download SRT")
         json_file = gr.File(label="Download JSON")
         xlsx_file = gr.File(label="Download XLSX")
+        docx_file = gr.File(label="Download DOCX")
 
     run_btn.click(
         fn=transcribe,
         inputs=[audio_input, model_dropdown],
-        outputs=[transcript_box, segments_table, srt_file, json_file, xlsx_file],
+        outputs=[
+            transcript_box,
+            segments_table,
+            srt_file,
+            json_file,
+            xlsx_file,
+            docx_file,
+        ],
     )
 
 if __name__ == "__main__":

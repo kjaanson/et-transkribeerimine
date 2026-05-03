@@ -12,6 +12,7 @@ dependencies = [
   "ffmpeg-python>=0.2.0",
   "tqdm>=4.66.0",
   "openpyxl>=3.1.0",
+  "python-docx>=1.1.0",
 ]
 
 [project.optional-dependencies]
@@ -29,6 +30,15 @@ build-backend = "hatchling.build"
 
 [tool.uv]
 package = true
+link-mode = "copy"
+
+[[tool.uv.index]]
+name = "pytorch-cu121"
+url = "https://download.pytorch.org/whl/cu121"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu121" }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/transcriber"]

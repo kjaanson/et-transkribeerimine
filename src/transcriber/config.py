@@ -56,5 +56,6 @@ class PipelineConfig:
     format_json: bool = True
     format_srt: bool = True
     format_xlsx: bool = True
+    format_docx: bool = True
     recurse: bool = False
     extensions: set[str] = field(default_factory=lambda: set(SUPPORTED_EXTENSIONS))

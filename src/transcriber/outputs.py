@@ -5,6 +5,7 @@ from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 
+from docx import Document
 from openpyxl import Workbook
 
 from .pipeline import TranscriptionResult
@@ -75,6 +76,19 @@ def write_xlsx(result: TranscriptionResult, path: Path) -> None:
     wb.save(path)
 
 
+def write_docx(result: TranscriptionResult, path: Path) -> None:
+    doc = Document()
+
+    if result.segments:
+        for seg in result.segments:
+            doc.add_paragraph(str(seg["text"]).strip())
+    else:
+        doc.add_paragraph(result.text.strip())
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    doc.save(path)
+
+
 def write_outputs(
     result: TranscriptionResult,
     output_dir: Path,
@@ -82,6 +96,7 @@ def write_outputs(
     write_json_file: bool,
     write_srt_file: bool,
     write_xlsx_file: bool = False,
+    write_docx_file: bool = False,
 ) -> list[Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     stem = result.input_path.stem
@@ -106,5 +121,10 @@ def write_outputs(
         xlsx_path = output_dir / f"{stem}.xlsx"
         write_xlsx(result, xlsx_path)
         written.append(xlsx_path)
+
+    if write_docx_file:
+        docx_path = output_dir / f"{stem}.docx"
+        write_docx(result, docx_path)
+        written.append(docx_path)
 
     return written

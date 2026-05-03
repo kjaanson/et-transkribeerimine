@@ -23,7 +23,7 @@ swapped via the `--model` alias flag (see below) or `--model-id` for any HF id.
 ```text
 et-transkribeerimine/
 ├── data/                      # Input media files
-├── output/                    # Generated transcripts (txt/json/srt/xlsx)
+├── output/                    # Generated transcripts (txt/json/srt/xlsx/docx)
 ├── scripts/
 │   ├── transcribe.py          # Single-file CLI wrapper
 │   └── batch_transcribe.py    # Batch CLI wrapper
@@ -32,7 +32,7 @@ et-transkribeerimine/
 │   ├── config.py              # Pipeline configuration
 │   ├── devices.py             # MPS/CPU/CUDA device resolution
 │   ├── io_audio.py            # Media discovery helpers
-│   ├── outputs.py             # TXT/JSON/SRT/XLSX writers
+│   ├── outputs.py             # TXT/JSON/SRT/XLSX/DOCX writers
 │   └── pipeline.py            # Whisper pipeline implementation
 └── pyproject.toml
 ```
@@ -80,7 +80,7 @@ Options:
 - `--chunk-length 30`
 - `--batch-size 1`
 - `--recurse` — when an input is a directory, scan it recursively
-- `--no-txt`, `--no-json`, `--no-srt`, `--no-xlsx` to disable formats
+- `--no-txt`, `--no-json`, `--no-srt`, `--no-xlsx`, `--no-docx` to disable formats
 
 ### Model aliases
 
@@ -98,6 +98,7 @@ For each input file, the pipeline writes:
 - `<stem>.json` structured transcript with metadata and segments
 - `<stem>.srt` subtitles
 - `<stem>.xlsx` Excel workbook with one row per segment (columns: Segment, Start (s), End (s), Text)
+- `<stem>.docx` Word document with one paragraph per segment (text only)
 
 Multi-file runs also write:
 - `output/run_summary.json` with success/failure report
